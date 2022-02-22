@@ -1,0 +1,187 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+train_data = pd.read_csv("", header = None)
+test_data = pd.read_csv("", header = None)
+
+train_data.isnull().sum()
+
+train_data.shape
+
+# class of ECG Data
+train_data.iloc[:, -1].unique()
+
+An Electro Cardio Gram (ECG) is simple test that can be used to check your heart rhythm and electrical activity.
+Classes = [N:0, S:1, V:2, F:3, Q:4] N: Non-ectopic beats (Normal Beats), - S: Supraventricular ectopic beats , V - Ventricular ectopic beats, F - Fusion Beats , Q - Unknown Beats.
+
+train_data[187] = train_data[187].astype('int')
+test_data[187] = test_data[187].astype('int')
+
+# Display counts of classes
+sns.catplot(x = 187, kind = "count", data = train_data, height = 6)
+
+train_data[187].value_counts()
+
+sns.set_style('whitegrid')
+plt.figure(figsize = (20,8))
+plt.plot(train_data.iloc[0, 0:187], color = 'red')
+plt.title('ECG Normal HeartBeats')
+plt.xlabel('Time in (ms)')
+plt.ylabel('Heart Beat Aplitude')
+plt.show()
+
+# Splitting data into classes
+df_1 = train_data[train_data[187] == 1]
+df_2 = train_data[train_data[187] == 2]
+df_3 = train_data[train_data[187] == 3]
+df_4 = train_data[train_data[187] == 4]
+
+sns.set_style('whitegrid')
+plt.figure(figsize = (20,8))
+plt.plot(train_data.iloc[0, 0:187], color = 'red', label = 'Normal Heart Beats')
+plt.plot(df_1.iloc[0, 0:187], color = 'blue', label = 'Supraventricular Ectopic Beats')
+plt.title('ECG Normal HeartBeats vs Supraventricular Ectopic Beats')
+plt.xlabel('Time in (ms)')
+plt.ylabel('Heart Beat Aplitude')
+plt.show()
+
+sns.set_style('whitegrid')
+plt.figure(figsize = (20,8))
+plt.plot(train_data.iloc[0, 0:187], color = 'red', label = 'Normal Heart Beats')
+plt.plot(df_2.iloc[1, 0:187], color = 'blue', label = 'Ventricular Ectopic Beats')
+plt.title('ECG Normal HeartBeats vs Ventricular Ectopic Beats')
+plt.xlabel('Time in (ms)')
+plt.ylabel('Heart Beat Aplitude')
+plt.show()
+
+# Resample using "Bootstrapping" method to regenerate samples by upsampling for each class.
+from sklearn.utils import resample
+
+df_1_upsample = resample(df_1, n_samples = 20000, replace = True, random_state = 123)
+df_2_upsample = resample(df_2, n_samples = 20000, replace = True, random_state = 123)
+df_3_upsample = resample(df_3, n_samples = 20000, replace = True, random_state = 123)
+df_4_upsample = resample(df_4, n_samples = 20000, replace = True, random_state = 123)
+
+# Randomnly select 20000 samples from class = 0 samples
+df_0 = train_data[train_data[187] == 0].sample(n = 20000, random_state = 123)
+
+# Merge all dataframes to create new train samples
+train_df = pd.concat([df_0, df_1_upsample, df_2_upsample, df_3_upsample, df_4_upsample])
+
+train_df[187].value_counts()
+
+plt.style.use('ggplot')
+plt.figure(figsize=(10,10))
+my_circle = plt.Circle((0,0), 0.7, color = 'white')
+plt.pie(train_df[187].value_counts(), labels = ['Normal Beats','Unknown Beats','Ventricular ectopic beats',
+                                                  'Supraventricular ectopic beats', 'Fusion Beats'], autopct = '%0.0f%%')
+p = plt.gcf()
+p.gca().add_artist(my_circle)
+plt.show() 
+
+# train Y
+target_train = train_df[187]
+target_test = test_data[187]
+
+target_train.unique()
+
+# train Y
+target_train = train_df[187]
+target_test = test_data[187]
+
+# convert integer values into categorical one-hot encoding
+# 0 - [1 0 0 0 0]
+# 4 - [0 0 0 0 1]
+from keras.utils.np_utils import to_categorical
+y_train = to_categorical(target_train)
+y_train = to_categorical(target_train)
+
+y_test = to_categorical(target_test)
+
+display(y_train)
+
+x_train = train_df.iloc[:, :-1].values
+x_test = test_data.iloc[:, :-1].values
+
+x_train.shape
+
+# For Conv1D dimentionality must be chaged to 187 x 1 where 187 = num of features & 1 = 1-D Dimentionality of Data
+x_train = x_train.reshape(len(x_train), x_train.shape[1], 1)
+x_test = x_test.reshape(len(x_test), x_test.shape[1], 1)
+
+x_train.shape
+
+from keras.models import Sequential
+from keras.layers import Dense
+
+from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten
+from tensorflow.keras.optimizers import Adam
+# Avoid Overfitting of NN by Normalizing the samples
+from tensorflow.keras.layers import BatchNormalization
+
+def build_model():
+    model = Sequential()
+    # Filters = No. of Neurons
+    # Padding = 'same' : Zero Padding; Padding = 'valid' : valid padding
+    model.add(Conv1D(filters = 64, kernel_size = 5, activation = 'relu', padding = 'same', input_shape = (187,1)))
+    # BatchNormalization to avoid overfitting
+    model.add(BatchNormalization())
+    # Pooling
+    model.add(MaxPooling1D(pool_size=(2), strides=(2), padding='same'))
+
+    # Conv Layer - II
+    model.add(Conv1D(filters = 64, kernel_size = 5, activation = 'relu', padding = 'same'))
+    model.add(BatchNormalization())
+    model.add(MaxPooling1D(pool_size=(2), strides=(2), padding='same'))
+
+    # Conv Layer - III
+    model.add(Conv1D(filters = 64, kernel_size = 5, activation = 'relu', padding = 'same'))
+    model.add(BatchNormalization())
+    model.add(MaxPooling1D(pool_size=(2), strides=(2), padding='same'))
+
+    # Flatten 
+    model.add(Flatten())
+
+    # Fully Connected Layer (FC - Layer)
+    model.add(Dense(units = 64, activation='relu'))
+    # Hidden Layer
+    model.add(Dense(units = 64, activation='relu'))
+    # Output Layer
+    model.add(Dense(units = 5, activation='softmax'))
+
+    # loss = 'categorical_crossentropy'
+    model.compile(optimizer = 'Adam', loss = 'categorical_crossentropy', metrics = ['accuracy'])
+
+    return model
+
+model = build_model()
+
+model.summary()
+history = model.fit(x_train, y_train, epochs = 15, batch_size = 32, validation_data = (x_test, y_test))
+
+pd.DataFrame(history.history)
+
+pd.DataFrame(history.history)[['accuracy','val_accuracy']].plot()
+
+pd.DataFrame(history.history)[['loss','val_loss']].plot()
+
+model.evaluate(x_test, y_test)
+
+# Make Prediction
+predict = model.predict(x_test)
+
+predict
+
+# Distributed probability to discrete class
+yhat = np.argmax(predict, axis = 1)
+yhat
+
+from sklearn.metrics import classification_report, confusion_matrix
+confusion_matrix( target_test,yhat )
+
+plt.figure(figsize=(7,5))
+sns.heatmap(confusion_matrix( target_test,yhat ), annot = True, cmap = 'RdPu', fmt = '0.0f')
+
+print(classification_report(target_test,yhat))
